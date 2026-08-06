@@ -84,7 +84,8 @@ def my_profile(id):
         "role" : student.role,
         "email" : student.email,
         "department" : student.department,
-        "login_date" : student.login_date
+        "login_date" : student.login_date,
+        "update_at" : student.update_at
         }
     
     return jsonify({

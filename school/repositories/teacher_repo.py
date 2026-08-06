@@ -33,5 +33,4 @@ class TeacherRepository:
     @staticmethod
     def update_teacher():
         db.session.commit()
-
-    
+         

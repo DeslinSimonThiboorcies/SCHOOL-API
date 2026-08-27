@@ -1,5 +1,5 @@
 from school.extensison.db import db
-from datetime import datetime
+from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash , check_password_hash
 
 
@@ -29,13 +29,13 @@ class Teacher(db.Model):
     )
     login_at = db.Column(
         db.DateTime,
-        default = datetime.utcnow,
+        default = lambda : datetime.now(timezone.utc),
         nullable =False
     )
     update_at = db.Column(
         db.DateTime,
-        default = datetime.utcnow,
-        onupdate = datetime.utcnow,
+        default = lambda : datetime.now(timezone.utc),
+        onupdate = lambda : datetime.now(timezone.utc),
         nullable =False
     )
     password = db.Column(

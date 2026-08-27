@@ -11,12 +11,10 @@ def principle(func):
         teacher_id = int(get_jwt_identity())
         currunt_teacher = TeacherRepository.view_teacher(teacher_id)
 
-        print(currunt_teacher.role)
-
-        if currunt_teacher.role != "PRINCIPAL":
+        if not currunt_teacher or currunt_teacher.role != "PRINCIPAL":
             return jsonify({
                 "MESSAGE" : "ACCESS DENIED!"
-            })
+            }), 403
         
         return func(*args, **kwargs)
     return teacher_deco

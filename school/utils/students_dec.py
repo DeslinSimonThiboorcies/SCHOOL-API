@@ -11,7 +11,7 @@ def school_principl(func):
         students_id = int(get_jwt_identity())
         principle = TeacherRepository.view_teacher(students_id)
 
-        if principle.role not in ["PRINCIPAL", "TEACHER"]:
+        if not principle or principle.role not in ["PRINCIPAL", "TEACHER"]:
             return jsonify({
                 "Message" : "Access Denied!"
             }), 403

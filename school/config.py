@@ -15,3 +15,12 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+
+class TestConfig:
+
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SECRET_KEY = "test-secret-key"
+    JWT_SECRET_KEY = "test-jwt-secret-key-with-more-length-for-security-32bytes"

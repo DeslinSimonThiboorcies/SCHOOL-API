@@ -8,31 +8,39 @@ teach_bp = Blueprint(
     __name__
 )
 
-@teach_bp.route("/register_teachers", methods =["POST"])
+@teach_bp.route("/teacher/register", methods =["POST"])
 def register():
 
     data = request.get_json()
 
-    TeacherServices.register_teacher(data)
+    try:
+        TeacherServices.register_teacher(data)
+
+    except ValueError as e:
+        return jsonify({
+            "MESSAGE": str(e)
+        }), 400
+
     return jsonify({
         "MESSAGE" : "TEACHER CREATE SUCCESSFULLY"
     }), 201
 
-@teach_bp.route("/login_teachers", methods =["POST"])
+@teach_bp.route("/teacher/login", methods =["POST"])
 def login_teacher():
 
     data = request.get_json()
-    teacher = TeacherServices.login_teacher(data)
 
-    if not teacher:
-        return jsonify({
-            "MESSAGE" : "USER NOT FOUND!"
-        }), 404
+    try:
+        token = TeacherServices.login_teacher(data)
+    except ValueError as e:
+        return jsonify({"MESSAGE": str(e)}), 401
+
     return jsonify({
-        "MESSAGE" : teacher
+        "MESSAGE" : "LOGIN SUCCESSFULLY",
+        "TOKEN" : token
     }), 200
 
-@teach_bp.route("/view_all_teachers", methods =["GET"])
+@teach_bp.route("/teacher/view_all", methods =["GET"])
 @jwt_required()
 @principle
 def view_all():
@@ -60,22 +68,22 @@ def view_all():
         "MESSAGE" : responds
     }), 200
 
-@teach_bp.route("/single_profile/<int:id>", methods =["GET"])
+@teach_bp.route("/teacher/single_profile/<int:id>", methods =["GET"])
 @jwt_required()
 def my_profile(id):
 
     teachers = int(get_jwt_identity())
     teacher = TeacherServices.teacher_profile(teachers)
 
-    if teacher.role != "PRINCIPAL" and teacher.id != id:
-        return jsonify({
-            "MESSAGE" : "ACCESS DENIED!"
-        })
-    
     if not teacher:
         return jsonify({
             "MESSAGE" : "USER NOT FOUND!"
-        }),404
+        }), 404
+
+    if teacher.role != "PRINCIPAL" and teacher.id != id:
+        return jsonify({
+            "MESSAGE" : "ACCESS DENIED!"
+        }), 403
     
     responds = {
         "name" : teacher.name,
@@ -89,12 +97,17 @@ def my_profile(id):
         "MESSAGE" : responds
     }), 200
 
-@teach_bp.route("/update_teacher/<int:id>", methods =["PUT"])
+@teach_bp.route("/teacher/update/<int:id>", methods =["PUT"])
 @jwt_required()
 def update_teach(id):
 
     teacher = int(get_jwt_identity())
     schools = TeacherServices.teacher_profile(teacher)
+
+    if not schools:
+        return jsonify({
+            "MESSAGE" : "USER NOT FOUND!"
+        }), 404
 
     if schools.role != "PRINCIPAL" and schools.id != id:
         return jsonify({
@@ -114,12 +127,17 @@ def update_teach(id):
         "MESSAGE" : "TEACHER UPDATE SUCCESS"
     }), 200
 
-@teach_bp.route("/delete_teacher/<int:id>", methods =["DELETE"])
+@teach_bp.route("/teacher/delete/<int:id>", methods =["DELETE"])
 @jwt_required()
 def delete_teach(id):
 
     teacher = int(get_jwt_identity())
     teachers = TeacherServices.teacher_profile(teacher)
+
+    if not teachers:
+        return jsonify({
+            "MESSAGE" : "USER NOT FOUND!"
+        }), 404
 
     if teachers.role != "PRINCIPAL" and teachers.id != id:
         return jsonify({

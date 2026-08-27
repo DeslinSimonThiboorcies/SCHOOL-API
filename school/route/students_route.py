@@ -8,32 +8,36 @@ student_bp = Blueprint(
     __name__
 )
 
-@student_bp.route("/register", methods =["POST"])
+@student_bp.route("/students/register", methods =["POST"])
 def register():
 
     data = request.get_json()
-    StudentsServices.students_register(data)
+
+    try:
+        StudentsServices.students_register(data)
+        
+    except ValueError as e:
+        return jsonify({"Message": str(e)}), 400
 
     return jsonify({
-        "Message" : "Data Create Successfully"
-    })
+        "Message" : "Student Create Successfully"
+    }), 201
 
-@student_bp.route("/login", methods=["POST"])
+@student_bp.route("/students/login", methods=["POST"])
 def login():
 
     data = request.get_json()
-    student = StudentsServices.login(data)
 
-    if not student:
-        return jsonify({
-            "Message" : "Data not found!"
-        }), 404
-    
+    try:
+        token = StudentsServices.login(data)
+    except ValueError as e:
+        return jsonify({"Message": str(e)}), 401
+
     return jsonify({
-        "TOKEN" : student
+        "TOKEN" : token
     }), 200
 
-@student_bp.route("/all_profile", methods = ["GET"])
+@student_bp.route("/students/all_profile", methods = ["GET"])
 @jwt_required()
 @school_principl
 def all_students():
@@ -60,7 +64,7 @@ def all_students():
         "MESSAGE" : responds
     }), 200
 
-@student_bp.route("/my_profile/<int:id>", methods = ["GET"])
+@student_bp.route("/students/my_profile/<int:id>", methods = ["GET"])
 @jwt_required()
 def my_profile(id):
 
@@ -71,8 +75,8 @@ def my_profile(id):
         return jsonify({
             "MESSAGE" : "USER NOT FOUND!"
         }), 404
-    
-    if student.role != ["PRINCIPAL" or "TEACHER"] and\
+
+    if student.role not in ["PRINCIPAL", "TEACHER"] and\
         student.id != id:
         return jsonify({
             "NOTE" : "ACCESS DENIED"
@@ -92,14 +96,19 @@ def my_profile(id):
         "MESSAGE" : responds
     }), 200
 
-@student_bp.route("/update/<int:id>", methods = ["PUT"])
+@student_bp.route("/students/update/<int:id>", methods = ["PUT"])
 @jwt_required()
 def update(id):
 
     student = int(get_jwt_identity())
     school = StudentsServices.profile(student)
-    
-    if school.role != ["PRINCIPAL" or "TEACHER"] and\
+
+    if not school:
+        return jsonify({
+            "MESSAGE" : "USER NOT FOUND!"
+        }), 404
+
+    if school.role not in ["PRINCIPAL", "TEACHER"] and\
         school.id != id:
         return jsonify({
             "NOTE" : "ACCESS DENIED"
@@ -113,19 +122,24 @@ def update(id):
         }), 404
     
     data = request.get_json()
-    StudentsServices.update(school, data)
+    StudentsServices.update(students, data)
     return jsonify({
         "MESSAGE" : "STUDENT UPDATE SUCCESSFUL"
     }), 200
 
-@student_bp.route("/delete/<int:id>", methods = ["DELETE"])
+@student_bp.route("/students/delete/<int:id>", methods = ["DELETE"])
 @jwt_required()
 def remove(id):
 
     school = int(get_jwt_identity())
     students = StudentsServices.profile(school)
 
-    if students.role != ["PRINCIPAL" or "TEACHER"] and\
+    if not students:
+        return jsonify({
+            "MESSAGE" : "USER NOT FOUND!"
+        }), 404
+
+    if students.role not in ["PRINCIPAL", "TEACHER"] and\
         students.id != id:
         return jsonify({
             "NOTE" : "ACCESS DENIED"

@@ -3,11 +3,14 @@ from school.config import Config
 from school.extensison.db import db
 from school.extensison.jwt import jwt
 
-app = Flask(__name__)
 
-def create_app():
+def create_app(config_class=Config, config_overrides=None):
 
-    app.config.from_object(Config)
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+
+    if config_overrides:
+        app.config.update(config_overrides)
 
     db.init_app(app)
     jwt.init_app(app)
@@ -19,7 +22,7 @@ def create_app():
         url_prefix = "/api"
     )
 
-    from school.route.teacher_services import teach_bp
+    from school.route.teacher_route import teach_bp
 
     app.register_blueprint(
         teach_bp,

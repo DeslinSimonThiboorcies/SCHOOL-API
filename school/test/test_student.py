@@ -1,4 +1,3 @@
-import pytest
 from school.test.conftest import auth_headers
 
 

@@ -16,17 +16,21 @@ def create_app(config_class=Config, config_overrides=None):
     jwt.init_app(app)
 
     from school.route.students_route import student_bp
-
     app.register_blueprint(
         student_bp,
         url_prefix = "/api"
     )
 
     from school.route.teacher_route import teach_bp
-
     app.register_blueprint(
         teach_bp,
         url_prefix = "/api"
+    )
+
+    from school.route.password_reset_route import password_reset_bp
+    app.register_blueprint(
+        password_reset_bp,
+        url_prefix="/api"
     )
 
     return app

@@ -115,6 +115,11 @@ def get_my_profile():
             "login_date": user.login_date
         }), 200
 
+    except ValueError:
+        return jsonify({
+            "message": "User not found"
+        }), 404
+
     except Exception as error:
         return jsonify({
             "message": "Something went wrong",
@@ -170,6 +175,11 @@ def get_user_by_id(user_id):
             "role": user.role,
             "login_date": user.login_date
         }), 200
+
+    except ValueError:
+        return jsonify({
+            "message": "User not found"
+        }), 404
 
     except Exception as error:
         return jsonify({
@@ -240,6 +250,11 @@ def delete_user(user_id):
         return jsonify({
             "message": "User deleted successfully"
         }), 200
+
+    except ValueError:
+        return jsonify({
+            "message": "User not found"
+        }), 404
 
     except Exception as error:
         return jsonify({

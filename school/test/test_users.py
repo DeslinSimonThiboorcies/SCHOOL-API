@@ -121,6 +121,22 @@ class TestUserProfiles:
         assert response.status_code == 200
         assert response.get_json()["email"] == user.email
 
+    def test_get_profile_returns_404_for_missing_user(self, client):
+        from flask_jwt_extended import create_access_token
+
+        token = create_access_token(
+            identity="999999",
+            additional_claims={"role": "STUDENT"}
+        )
+
+        response = client.get(
+            PROFILE_URL,
+            headers=auth_headers(token)
+        )
+
+        assert response.status_code == 404
+        assert response.get_json()["message"] == "User not found"
+
     def test_principal_can_view_all_users(self, client, db):
         principal = create_user(
             db,

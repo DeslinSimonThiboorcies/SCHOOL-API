@@ -3,12 +3,14 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from flask import current_app
+from school.extensison.db import db
 
 from school.models.password_reset_token import PasswordResetToken
 from school.repositories.password_reset_repo import PasswordResetRepository
 
 from school.repositories.students_repo import StudentsRepository
 from school.repositories.teacher_repo import TeacherRepository
+from school.models.users import User
 
 
 class PasswordResetService:
@@ -165,10 +167,11 @@ class PasswordResetService:
         if not account:
             raise ValueError("Account not found")
 
-        if reset_token.account_type == "STUDENT":
-            account.students_password(new_password)
-        else:
-            account.set_teachers_password(new_password)
+        user = db.session.get(User, account.user_id)
+        if not user:
+            raise ValueError("Account not found")
+
+        user.users_password(new_password)
 
         PasswordResetRepository.mark_as_used(reset_token)
 

@@ -1,20 +1,49 @@
-from flask import jsonify
 from functools import wraps
-from flask_jwt_extended import get_jwt_identity
-from school.repositories.teacher_repo import TeacherRepository
 
-def school_principl(func):
+from flask import jsonify
+from flask_jwt_extended import (
+    verify_jwt_in_request,
+    get_jwt_identity
+)
 
-    @wraps(func)
-    def decoratore(*args, **kwargs):
+from school.repositories.students_repo import StudentRepository
+from school.models.users import User
 
-        students_id = int(get_jwt_identity())
-        principle = TeacherRepository.view_teacher(students_id)
 
-        if not principle or principle.role not in ["PRINCIPAL", "TEACHER"]:
+def student_access_required(function):
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+
+        current_user_id = int(get_jwt_identity())
+
+        student_id = kwargs.get("student_id")
+
+        if student_id is None:
+            student_id = kwargs.get("id")
+
+        student = StudentRepository.get_by_id(student_id)
+
+        if not student:
             return jsonify({
-                "Message" : "Access Denied!"
+                "message": "Student not found"
+            }), 404
+
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return jsonify({
+                "message": "User not found"
+            }), 404
+
+        if (
+            current_user.role not in {"PRINCIPAL", "TEACHER"}
+            and student.user_id != current_user_id
+        ):
+            return jsonify({
+                "message": "You do not have permission to access this student"
             }), 403
 
-        return func(*args, **kwargs)
-    return decoratore
+        return function(*args, **kwargs)
+
+    return wrapper

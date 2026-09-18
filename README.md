@@ -75,7 +75,7 @@ SCHOOL API/
    ```
    Authorization: Bearer <your_jwt_token>
    ```
-4. Role-based decorators (`@school_principl`, `@principle`) restrict certain routes to `TEACHER`/`PRINCIPAL` roles
+4. Role-based decorators (`@school_principal`, `@principal`) restrict certain routes to `TEACHER`/`PRINCIPAL` roles
 
 ## 👤 Author
 **Deslin Simon Thiboorcies**

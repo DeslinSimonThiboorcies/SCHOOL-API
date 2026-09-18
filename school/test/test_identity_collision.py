@@ -24,12 +24,13 @@ def test_student_and_teacher_collision(
 
     with app.app_context():
         student_token = create_access_token(
-            identity = str(student.id)
+            identity=str(student.user_id),
+            additional_claims={"role": "STUDENT"}
         )
 
     response = client.get(
-        "/api/all_profile", 
+        "/api/view/profile", 
         headers = auth_headers(student_token)
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403

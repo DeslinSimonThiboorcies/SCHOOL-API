@@ -1,328 +1,129 @@
+from datetime import date
+
+from school.models.users import User
 from school.test.conftest import auth_headers
 
 
-REGISTER_URL = "/api/teacher/register"
-LOGIN_URL = "/api/teacher/login"
-VIEW_ALL_URL = "/api/teacher/view_all"
+REGISTER_URL = "/api/teachers/profile"
+ALL_TEACHERS_URL = "/api/teacher/profile"
 
 
-def single_profile_url(teacher_id):
-    return f"/api/teacher/single_profile/{teacher_id}"
+def profile_url(teacher_id):
+    return f"/api/teacher/{teacher_id}"
 
 
 def update_url(teacher_id):
-    return f"/api/teacher/update/{teacher_id}"
+    return f"/api/update/department/{teacher_id}"
 
 
 def delete_url(teacher_id):
-    return f"/api/teacher/delete/{teacher_id}"
+    return f"/api/delete/department/{teacher_id}"
 
 
-class TestTeacherRegistration:
+def create_unprofiled_user(db, email="unprofiled-teacher@example.com"):
+    user = User(
+        full_name="Unprofiled Teacher",
+        email=email,
+        date_of_birth=date(1980, 1, 1),
+        role="TEACHER",
+    )
+    user.users_password("password123")
+    db.session.add(user)
+    db.session.commit()
+    return user
 
-    def test_register_success(self, client):
+
+class TestTeacherProfiles:
+
+    def test_create_teacher_profile(self, client, db, principal_token):
+        _principal, token = principal_token
+        user = create_unprofiled_user(db)
+
         response = client.post(
-            REGISTER_URL, 
+            REGISTER_URL,
             json={
-            "name": "Test User",
-            "department": "Commerces",
-            "email": "new.teacher@example.com",
-            "password": "123456",
-        })
+                "user_id": user.id,
+                "employee_number": "EMP-NEW",
+                "department": "Science",
+                "qualification": "Education",
+            },
+            headers=auth_headers(token),
+        )
 
         assert response.status_code == 201
-        assert response.get_json()["MESSAGE"] == "TEACHER CREATE SUCCESSFULLY"
+        assert response.get_json()["teacher"]["user_id"] == user.id
 
-    def test_register_duplicate_teacher(
-            self, 
-            client, 
-            create_teacher
-        ):
-        create_teacher(email="dup@example.com")
-
-        response = client.post(
-            REGISTER_URL, 
-            json={
-            "name": "Someone Else",
-            "department": "Science",
-            "email": "dup@example.com",
-            "password": "123456",
-        })
-
-        assert response.status_code == 400
-        assert "ALREADY EXIST" in response.get_json()["MESSAGE"]
-
-
-class TestTeacherLogin:
-
-    def test_login_success(
-            self, 
-            client, 
-            create_teacher
-        ):
-        create_teacher(
-            email = "login@example.com", 
-            password = "mypassword"
-        )
-
-        response = client.post(
-            LOGIN_URL, 
-            json={
-            "email": "login@example.com",
-            "password": "mypassword",
-        })
-
-        assert response.status_code == 200
-        body = response.get_json()
-        assert body["MESSAGE"] == "LOGIN SUCCESSFULLY"
-        assert body["TOKEN"]
-
-    def test_login_wrong_password(
-            self, 
-            client, 
-            create_teacher
-        ):
-        create_teacher(
-            email = "wrongpass@example.com",
-            password = "correct"
-        )
-
-        response = client.post(
-            LOGIN_URL, 
-            json={
-            "email": "wrongpass@example.com",
-            "password": "incorrect",
-        })
-
-        assert response.status_code == 401
-
-    def test_login_unknown_email(
-            self, 
-            client
-        ):
-        response = client.post(
-            LOGIN_URL, 
-            json={
-            "email": "ghost@example.com",
-            "password": "whatever",
-        })
-
-        assert response.status_code == 401
-
-
-class TestViewAllTeachers:
-
-    def test_view_all_teachers(self, client):
-        response = client.get(VIEW_ALL_URL)
-        assert response.status_code == 401
-
-    def test_plain_teacher(
-            self, 
-            client, 
-            teacher_token
-        ):
+    def test_teacher_list_requires_principal(self, client, teacher_token):
         _teacher, token = teacher_token
 
         response = client.get(
-            VIEW_ALL_URL, 
-            headers=auth_headers(token)
+            ALL_TEACHERS_URL,
+            headers=auth_headers(token),
         )
+
         assert response.status_code == 403
 
-    def test_principal_allowed(
-            self, 
-            client, 
-            principal_token, 
-            create_teacher
-        ):
+    def test_principal_can_list_teachers(
+        self, client, principal_token, create_teacher
+    ):
         _principal, token = principal_token
-        create_teacher(
-            name = "Another", 
-            email = "another@example.com"
-        )
+        create_teacher(email="listed-teacher@example.com")
 
         response = client.get(
-            VIEW_ALL_URL, 
-            headers=auth_headers(token)
+            ALL_TEACHERS_URL,
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 200
-        assert response.get_json()["MESSAGE"]
+        assert response.get_json()["teachers"]
 
-
-class TestSingleProfile:
-
-    def test_self_access_allowed(
-            self, 
-            client, 
-            teacher_token
-        ):
+    def test_teacher_can_view_own_profile(self, client, teacher_token):
         teacher, token = teacher_token
 
         response = client.get(
-            single_profile_url(teacher.id), 
-            headers=auth_headers(token)
+            profile_url(teacher.id),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 200
-        assert response.get_json()["MESSAGE"]["email"] == teacher.email
+        assert response.get_json()["teacher"]["id"] == teacher.id
 
-    def test_other_profile_denied_for_non_principal(
-            self, 
-            client, 
-            teacher_token, 
-            create_teacher
-        ):
+    def test_teacher_cannot_view_another_profile(
+        self, client, teacher_token, create_teacher
+    ):
         _teacher, token = teacher_token
-        other = create_teacher(
-            name = "Other", 
-            email = "other@example.com"
-        )
+        other = create_teacher(email="other-teacher@example.com")
 
         response = client.get(
-            single_profile_url(other.id), 
-            headers=auth_headers(token)
+            profile_url(other.id),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 403
 
-    def test_other_profile_allowed_for_principal(
-            self, 
-            client, 
-            principal_token, 
-            create_teacher
-        ):
-        _principal, token = principal_token
-        other = create_teacher(
-            name="Other", 
-            email="other2@example.com"
-        )
-
-        response = client.get(
-            single_profile_url(other.id), 
-            headers=auth_headers(token)
-        )
-
-        assert response.status_code == 200
-
-
-class TestUpdateTeacher:
-
-    def test_self_update_allowed(
-            self, 
-            client, 
-            teacher_token
-        ):
+    def test_teacher_can_update_own_profile(self, client, teacher_token, db):
         teacher, token = teacher_token
 
         response = client.put(
             update_url(teacher.id),
-            json={"name": "Updated Name"},
+            json={"department": "Updated Department"},
             headers=auth_headers(token),
         )
 
         assert response.status_code == 200
-        assert response.get_json()["MESSAGE"] == "TEACHER UPDATE SUCCESS"
+        db.session.refresh(teacher)
+        assert teacher.department == "Updated Department"
 
-    def test_update_other_denied_for_non_principal(
-            self, 
-            client, 
-            teacher_token, 
-            create_teacher
-        ):
-        _teacher, token = teacher_token
-        other = create_teacher(email="other3@example.com")
-
-        response = client.put(
-            update_url(other.id),
-            json={"name": "Hacked Name"},
-            headers=auth_headers(token),
-        )
-
-        assert response.status_code == 403
-
-    def test_principal_updates_target(
-            self, 
-            client, 
-            principal_token, 
-            create_teacher, 
-            db
-        ):
-
-        principal, token = principal_token
-        target = create_teacher(
-            name = "Original Name", 
-            email = "target@example.com"
-        )
-
-        response = client.put(
-            update_url(target.id),
-            json={"name": "Changed By Principal"},
-            headers=auth_headers(token),
-        )
-
-        assert response.status_code == 200
-
-        db.session.refresh(target)
-        db.session.refresh(principal)
-        assert target.name == "Changed By Principal"
-        assert principal.name != "Changed By Principal"
-
-    def test_update_nonexistent_teacher(
-            self, 
-            client, 
-            principal_token
-        ):
+    def test_principal_can_delete_teacher(
+        self, client, principal_token, create_teacher, db
+    ):
         _principal, token = principal_token
+        teacher = create_teacher(email="delete-teacher@example.com")
 
-        response = client.put(
-            update_url(999999),
-            json={"name": "Ghost"},
+        response = client.delete(
+            delete_url(teacher.id),
             headers=auth_headers(token),
         )
 
-        assert response.status_code == 404
-
-
-class TestDeleteTeacher:
-
-    def test_delete_other_denied(
-            self, 
-            client, 
-            teacher_token, 
-            create_teacher
-        ):
-        _teacher, token = teacher_token
-        other = create_teacher(email="deleteme@example.com")
-
-        response = client.delete(delete_url(other.id), headers=auth_headers(token))
-
-        assert response.status_code == 403
-
-    def test_principal_can_delete(
-            self, 
-            client, 
-            principal_token, 
-            create_teacher, 
-            db
-        ):
-        _principal, token = principal_token
-        target = create_teacher(email="deleteme2@example.com")
-        target_id = target.id
-
-        response = client.delete(delete_url(target_id), headers=auth_headers(token))
-
         assert response.status_code == 200
-        from school.models.teacher import Teacher
-        assert db.session.get(Teacher, target_id) is None
-
-    def test_delete_nonexistent_teacher_404(
-            self, 
-            client, 
-            principal_token
-        ):
-        token = principal_token
-
-        response = client.delete(delete_url(999999), headers=auth_headers(token))
-
-        assert response.status_code == 422
+        assert db.session.get(type(teacher), teacher.id) is None

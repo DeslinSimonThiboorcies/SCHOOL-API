@@ -1,8 +1,61 @@
 from school.repositories.teacher_repo import TeacherRepository
-from school.models.teacher import Teacher
+from school.models.teacher_profile import Teacher
+from school.models.users import User
+from school.extensison.db import db
 from flask_jwt_extended import create_access_token
 
 class  TeacherServices:
+
+    @staticmethod
+    def create_teacher(data):
+        user = db.session.get(User, data["user_id"])
+        if not user:
+            raise ValueError("User not found")
+
+        if TeacherRepository.get_by_user_id(user.id):
+            raise ValueError("Teacher profile already exists")
+
+        teacher = Teacher(
+            user_id=user.id,
+            employee_number=data["employee_number"],
+            department=data["department"],
+            qualification=data["qualification"],
+        )
+        TeacherRepository.create(teacher)
+        TeacherRepository.commit()
+        return teacher
+
+    @staticmethod
+    def get_all_teachers():
+        return TeacherRepository.get_all()
+
+    @staticmethod
+    def get_teachers_by_department(department):
+        return TeacherRepository.get_by_department(department)
+
+    @staticmethod
+    def get_teacher_by_id(teacher_id):
+        return TeacherRepository.get_by_id(teacher_id)
+
+    @staticmethod
+    def update_teacher(teacher_id, data):
+        teacher = TeacherRepository.get_by_id(teacher_id)
+        if not teacher:
+            return None
+
+        for field in ("employee_number", "department", "qualification"):
+            if field in data:
+                setattr(teacher, field, data[field])
+        TeacherRepository.commit()
+        return teacher
+
+    @staticmethod
+    def delete_teacher(teacher_id):
+        teacher = TeacherRepository.get_by_id(teacher_id)
+        if not teacher:
+            return None
+        TeacherRepository.delete(teacher)
+        return teacher
 
     @staticmethod
     def register_teacher(data):

@@ -1,157 +1,215 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from school.services.teacher_service import TeacherServices
-from flask_jwt_extended import get_jwt_identity, jwt_required
-from school.utils.teacher_dec import principle
 
-teach_bp = Blueprint(
+from school.Schema.teacher_schema import (
+    TeacherCreateSchema,
+    TeacherUpdateSchema,
+    TeacherResponseSchema
+)
+
+from school.utils.role_decorator import role_require
+
+
+teacher_bp = Blueprint(
     "teachers",
     __name__
 )
 
-@teach_bp.route("/teacher/register", methods =["POST"])
-def register():
+teacher_create_schema = TeacherCreateSchema()
+teacher_update_schema = TeacherUpdateSchema()
+teacher_response_schema = TeacherResponseSchema()
+teacher_response_many_schema = TeacherResponseSchema(many=True)
 
+
+@teacher_bp.route("teachers/profile", methods=["POST"])
+@jwt_required()
+@role_require("PRINCIPAL")
+def create_teacher():
     data = request.get_json()
 
-    try:
-        TeacherServices.register_teacher(data)
-
-    except ValueError as e:
+    if not data:
         return jsonify({
-            "MESSAGE": str(e)
+            "message": "Request body is required"
         }), 400
 
-    return jsonify({
-        "MESSAGE" : "TEACHER CREATE SUCCESSFULLY"
-    }), 201
+    errors = teacher_create_schema.validate(data)
 
-@teach_bp.route("/teacher/login", methods =["POST"])
-def login_teacher():
-
-    data = request.get_json()
+    if errors:
+        return jsonify({
+            "message": "Validation failed",
+            "errors": errors
+        }), 400
 
     try:
-        token = TeacherServices.login_teacher(data)
-    except ValueError as e:
-        return jsonify({"MESSAGE": str(e)}), 401
+        teacher = TeacherServices.create_teacher(data)
 
-    return jsonify({
-        "MESSAGE" : "LOGIN SUCCESSFULLY",
-        "TOKEN" : token
-    }), 200
+        return jsonify({
+            "message": "Teacher created successfully",
+            "teacher": teacher_response_schema.dump(teacher)
+        }), 201
 
-@teach_bp.route("/teacher/view_all", methods =["GET"])
+    except ValueError as error:
+        return jsonify({
+            "message": str(error)
+        }), 400
+
+    except Exception as error:
+        return jsonify({
+            "message": "Something went wrong",
+            "error": str(error)
+        }), 500
+
+
+@teacher_bp.route("teacher/profile", methods=["GET"])
 @jwt_required()
-@principle
-def view_all():
+@role_require("PRINCIPAL")
+def get_all_teachers():
+    try:
+        teachers = TeacherServices.get_all_teachers()
 
-    teacher = TeacherServices.teachers_profiles()
-
-    if not teacher:
         return jsonify({
-            "MESSAGE" : "USER NOT FOUND!"
-        }), 404
-    
-    responds = []
+            "message": "Teachers fetched successfully",
+            "teachers": teacher_response_many_schema.dump(teachers)
+        }), 200
 
-    for teachers in teacher:
-        responds.append({
-            "name" : teachers.name,
-            "role" : teachers.role,
-            "department" : teachers.department,
-            "email" : teachers.email,
-            "login_at" :teachers.login_at,
-            "update_at" : teachers.update_at
-        })
+    except Exception as error:
+        return jsonify({
+            "message": "Something went wrong",
+            "error": str(error)
+        }), 500
 
-    return jsonify({
-        "MESSAGE" : responds
-    }), 200
 
-@teach_bp.route("/teacher/single_profile/<int:id>", methods =["GET"])
+@teacher_bp.route("/department/<string:department>", methods=["GET"])
 @jwt_required()
-def my_profile(id):
+@role_require("PRINCIPAL")
+def get_teachers_by_department(department):
+    try:
+        teachers = TeacherServices.get_teachers_by_department(
+            department
+        )
 
-    teachers = int(get_jwt_identity())
-    teacher = TeacherServices.teacher_profile(teachers)
-
-    if not teacher:
         return jsonify({
-            "MESSAGE" : "USER NOT FOUND!"
-        }), 404
+            "message": "Teachers fetched successfully",
+            "teachers": teacher_response_many_schema.dump(teachers)
+        }), 200
 
-    if teacher.role != "PRINCIPAL" and teacher.id != id:
+    except Exception as error:
         return jsonify({
-            "MESSAGE" : "ACCESS DENIED!"
-        }), 403
-    
-    responds = {
-        "name" : teacher.name,
-        "role" : teacher.role,
-        "department" : teacher.department,
-        "email" : teacher.email,
-        "login_at" :teacher.login_at,
-        "update_at" : teacher.update_at
-    }
-    return jsonify({
-        "MESSAGE" : responds
-    }), 200
+            "message": "Something went wrong",
+            "error": str(error)
+        }), 500
 
-@teach_bp.route("/teacher/update/<int:id>", methods =["PUT"])
+
+@teacher_bp.route("teacher/<int:teacher_id>", methods=["GET"])
 @jwt_required()
-def update_teach(id):
+def get_teacher_by_id(teacher_id):
+    current_user_id = int(get_jwt_identity())
+    claims = get_jwt()
+    current_role = claims.get("role")
 
-    teacher = int(get_jwt_identity())
-    schools = TeacherServices.teacher_profile(teacher)
+    try:
+        teacher = TeacherServices.get_teacher_by_id(teacher_id)
 
-    if not schools:
+        if not teacher:
+            return jsonify({
+                "message": "Teacher not found"
+            }), 404
+
+        if current_role != "PRINCIPAL":
+            if teacher.user_id != current_user_id:
+                return jsonify({
+                    "message": "You can access only your own teacher profile"
+                }), 403
+
         return jsonify({
-            "MESSAGE" : "USER NOT FOUND!"
-        }), 404
+            "message": "Teacher fetched successfully",
+            "teacher": teacher_response_schema.dump(teacher)
+        }), 200
 
-    if schools.role != "PRINCIPAL" and schools.id != id:
+    except Exception as error:
         return jsonify({
-            "MESSAGE" : "ACCESS DENIED!"
-        }), 403
-       
-    teachers = TeacherServices.teacher_profile(id)
-    data = request.get_json()
+            "message": "Something went wrong",
+            "error": str(error)
+        }), 500
 
-    if not teachers:
-        return jsonify({
-            "MESSAGE" : "USER NOT FOUND!"
-        }), 404
-    
-    TeacherServices.update(teachers, data)
-    return jsonify({
-        "MESSAGE" : "TEACHER UPDATE SUCCESS"
-    }), 200
 
-@teach_bp.route("/teacher/delete/<int:id>", methods =["DELETE"])
+@teacher_bp.route("update/department/<int:teacher_id>", methods=["PUT"])
 @jwt_required()
-def delete_teach(id):
+def update_teacher(teacher_id):
+    current_user_id = int(get_jwt_identity())
+    claims = get_jwt()
+    current_role = claims.get("role")
 
-    teacher = int(get_jwt_identity())
-    teachers = TeacherServices.teacher_profile(teacher)
+    try:
+        existing_teacher = TeacherServices.get_teacher_by_id(teacher_id)
 
-    if not teachers:
+        if not existing_teacher:
+            return jsonify({
+                "message": "Teacher not found"
+            }), 404
+
+        if current_role != "PRINCIPAL":
+            if existing_teacher.user_id != current_user_id:
+                return jsonify({
+                    "message": "You can update only your own teacher profile"
+                }), 403
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "message": "Request body is required"
+            }), 400
+
+        errors = teacher_update_schema.validate(data)
+
+        if errors:
+            return jsonify({
+                "message": "Validation failed",
+                "errors": errors
+            }), 400
+
+        teacher = TeacherServices.update_teacher(
+            teacher_id,
+            data
+        )
+
         return jsonify({
-            "MESSAGE" : "USER NOT FOUND!"
-        }), 404
+            "message": "Teacher updated successfully",
+            "teacher": teacher_response_schema.dump(teacher)
+        }), 200
 
-    if teachers.role != "PRINCIPAL" and teachers.id != id:
+    except ValueError as error:
         return jsonify({
-            "MESSAGE" : "ACCESS DENIED!"
-        }), 403
-    
-    school_principle = TeacherServices.teacher_profile(id)
+            "message": str(error)
+        }), 400
 
-    if not school_principle:
+    except Exception as error:
         return jsonify({
-            "MESSAGE" : "USER NOT FOUND!"
-        }), 404
-    
-    TeacherServices.delete(school_principle)
-    return jsonify({
-        "MESSAGE" : "TEACHER SUCCESSFULLY DELETE!"
-    }),200
+            "message": "Something went wrong",
+            "error": str(error)
+        }), 500
+
+
+@teacher_bp.route("delete/department/<int:teacher_id>", methods=["DELETE"])
+@jwt_required()
+@role_require("PRINCIPAL")
+def delete_teacher(teacher_id):
+    try:
+        deleted = TeacherServices.delete_teacher(teacher_id)
+
+        if not deleted:
+            return jsonify({
+                "message": "Teacher not found"
+            }), 404
+
+        return jsonify({
+            "message": "Teacher deleted successfully"
+        }), 200
+
+    except Exception as error:
+        return jsonify({
+            "message": "Something went wrong",
+            "error": str(error)
+        }), 500

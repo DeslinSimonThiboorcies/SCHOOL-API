@@ -1,8 +1,63 @@
 from school.repositories.students_repo import StudentsRepository
-from school.models.students import Student
+from school.models.student_profiles import Student
+from school.models.users import User
+from school.extensison.db import db
 from flask_jwt_extended import create_access_token
 
 class StudentsServices:
+
+    @staticmethod
+    def create_student(data):
+        user = db.session.get(User, data["user_id"])
+        if not user:
+            raise ValueError("User not found")
+
+        if StudentsRepository.get_by_user_id(user.id):
+            raise ValueError("Student profile already exists")
+
+        student = Student(
+            user_id=user.id,
+            admission_number=data["admission_number"],
+            joining_date=data.get("joining_date"),
+            class_id=data["class_id"],
+            parent_name=data["parent_name"],
+            parent_phone=data["parent_phone"],
+        )
+        StudentsRepository.create(student)
+        StudentsRepository.commit()
+        return student
+
+    @staticmethod
+    def get_all_students():
+        return StudentsRepository.get_all()
+
+    @staticmethod
+    def get_students_by_class_id(class_id):
+        return StudentsRepository.get_by_class_id(class_id)
+
+    @staticmethod
+    def get_student_by_id(student_id):
+        return StudentsRepository.get_by_id(student_id)
+
+    @staticmethod
+    def update_student(student_id, data):
+        student = StudentsRepository.get_by_id(student_id)
+        if not student:
+            return None
+
+        for field in ("admission_number", "class_id", "parent_name", "parent_phone"):
+            if field in data:
+                setattr(student, field, data[field])
+        StudentsRepository.commit()
+        return student
+
+    @staticmethod
+    def delete_student(student_id):
+        student = StudentsRepository.get_by_id(student_id)
+        if not student:
+            return None
+        StudentsRepository.delete(student)
+        return student
 
     @staticmethod
     def students_register(data):

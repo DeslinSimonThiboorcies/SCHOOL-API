@@ -1,10 +1,13 @@
 import pytest
+from datetime import date
 
 from school import create_app
 from school.config import TestConfig
 from school.extensison.db import db as _db
-from school.models.students import Student
-from school.models.teacher import Teacher
+from school.models.student_profiles import Student
+from school.models.teacher_profile import Teacher
+from school.models.users import User
+from school.models.class_model import ClassModel
 
 from flask_jwt_extended import create_access_token
 
@@ -21,6 +24,7 @@ def app():
         yield application
         _db.session.remove()
         _db.drop_all()
+        _db.engine.dispose()
 
 
 @pytest.fixture
@@ -42,14 +46,26 @@ def create_student(db):
         role = "STUDENT", 
         department = "COMMERCES"
     ):
-        student = Student(
-            name = name, 
-            email = email, 
-            role = role, 
-            department = department
+        user = User(
+            full_name=name,
+            email=email,
+            date_of_birth=date(2000, 1, 1),
+            role=role,
         )
+        user.users_password(password)
+        db.session.add(user)
+        db.session.flush()
 
-        student.students_password(password)
+        student = Student(
+            user_id=user.id,
+            admission_number=f"ADM-{user.id}",
+            class_id=1,
+            parent_name="Test Parent",
+            parent_phone="1234567890",
+        )
+        student.email = email
+        student.name = name
+        student.verify_students_password = user.verify_users_password
         db.session.add(student)
         db.session.commit()
         return student
@@ -67,14 +83,26 @@ def create_teacher(db):
         department = "COMMERCES"
         ):
 
-        teacher = Teacher(
-            name = name, 
-            email = email, 
-            role = role, 
-            department = department
+        user = User(
+            full_name=name,
+            email=email,
+            date_of_birth=date(1980, 1, 1),
+            role=role,
         )
+        user.users_password(password)
+        db.session.add(user)
+        db.session.flush()
 
-        teacher.set_teachers_password(password)
+        teacher = Teacher(
+            user_id=user.id,
+            employee_number=f"EMP-{user.id}",
+            department=department,
+            qualification="Education",
+        )
+        teacher.email = email
+        teacher.name = name
+        teacher.set_teachers_password = user.users_password
+        teacher.check_teachers_password = user.verify_users_password
         db.session.add(teacher)
         db.session.commit()
         return teacher
@@ -90,7 +118,8 @@ def student_token(
     student = create_student()
     with app.app_context():
         token = create_access_token(
-            identity=str(student.id)
+            identity=str(student.user_id),
+            additional_claims={"role": "STUDENT"}
         )
     return student, token
 
@@ -103,7 +132,8 @@ def teacher_token(
     teacher = create_teacher()
     with app.app_context():
         token = create_access_token(
-            identity=str(teacher.id)
+            identity=str(teacher.user_id),
+            additional_claims={"role": "TEACHER"}
         )
     return teacher, token
 
@@ -122,10 +152,29 @@ def principal_token(
 
     with app.app_context():
         token = create_access_token(
-            identity=str(principal.id)
+            identity=str(principal.user_id),
+            additional_claims={"role": "PRINCIPAL"}
         )
     return principal, token
 
 
 def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def principal_headers(principal_token):
+    _principal, token = principal_token
+    return auth_headers(token)
+
+
+@pytest.fixture
+def teacher_headers(teacher_token):
+    _teacher, token = teacher_token
+    return auth_headers(token)
+
+
+@pytest.fixture
+def student_headers(student_token):
+    _student, token = student_token
+    return auth_headers(token)

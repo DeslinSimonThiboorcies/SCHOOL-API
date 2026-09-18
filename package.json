@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix school-frontend run dev",
+    "build": "npm --prefix school-frontend run build",
+    "lint": "npm --prefix school-frontend run lint"
+  }
+}

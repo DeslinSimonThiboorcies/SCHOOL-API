@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from school.config import Config
 from school.extensison.db import db
 from school.extensison.jwt import jwt
@@ -8,6 +8,17 @@ def create_app(config_class=Config, config_overrides=None):
 
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = app.config["FRONTEND_URL"]
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        return response
+
+    @app.get("/api/health")
+    def health_check():
+        return jsonify({"status": "ok", "service": "school-api"})
 
     if config_overrides:
         app.config.update(config_overrides)

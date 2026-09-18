@@ -6,6 +6,8 @@ load_dotenv()
 
 class Config:
 
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
     DB_HOST = os.getenv("DB_HOST")
     DB_USER = os.getenv("DB_USER")
     DB_PASSWORD = os.getenv("DB_PASSWORD")
@@ -41,3 +43,4 @@ class TestConfig:
     MAIL_USE_TLS = True
 
     PASSWORD_RESET_URL = "http://localhost:3000/reset-password"
+    FRONTEND_URL = "http://localhost:5173"

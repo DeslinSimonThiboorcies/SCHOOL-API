@@ -52,6 +52,24 @@ Route  →  Service  →  Repository  →  Model
 | Database | MySQL (PyMySQL driver) |
 | Config | python-dotenv |
 
+## 🖥️ Run The Application
+
+Start the Flask API from the project root:
+
+```bash
+python app.py
+```
+
+Start the React workspace in a second terminal:
+
+```bash
+cd school-frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The frontend uses the Vite `/api` proxy locally and authenticates staff through the JWT login endpoint. Set `FRONTEND_URL` in the backend environment when deploying to a different frontend origin.
+
 ## 📂 Project Structure
 
 ```
